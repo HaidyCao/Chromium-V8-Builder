@@ -66,16 +66,16 @@ jobs:
             fetch v8
           fi
 
+          # 添加 target_os = ['android']
+          if ! grep -q "target_os = \['android'\]" .gclient; then
+            sed -i "/^target_os = /d" .gclient
+            echo "target_os = ['android']" >> .gclient
+          fi
+
           cd v8
           git fetch --tags
           echo "Checking out version: $V8_VERSION"
           git checkout $V8_VERSION
-
-          # 添加 target_os = ['android']
-          if ! grep -q "target_os = \['android'\]" $HOME/depot_tools/.gclient; then
-            sed -i "/^target_os = /d" $HOME/depot_tools/.gclient
-            echo "target_os = ['android']" >> $HOME/depot_tools/.gclient
-          fi
 
           # 强制同步依赖
           gclient sync --with_branch_heads --with_tags --force --reset --delete_unversioned_trees -D
