@@ -65,7 +65,10 @@ jobs:
       - name: Package D8
         run: |
           cd v8/out/android_arm64.release
-          zip -r d8-android-arm64-${{ steps.version.outputs.v8_version }}.zip d8
+          rm -rf src
+          rm -rf gen
+          cd ..
+          zip -r d8-android-arm64-${{ steps.version.outputs.v8_version }}.zip android_arm64.release
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
