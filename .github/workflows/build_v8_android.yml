@@ -4,8 +4,8 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '**'                # 任意文件修改都触发，包括 .yml
-  workflow_dispatch:        # 允许手动触发
+      - '**'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,15 +16,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ 读取版本文件
+      # 2️⃣ 读取 V8 版本
       - name: Read V8 version
         id: version
         run: |
-          V8_VERSION=$(cat V8_VERSION | tr -d '\n')
+          V8_VERSION=$(cat v8_tag.txt | tr -d '\n')
           echo "v8_version=${V8_VERSION}" >> $GITHUB_OUTPUT
           echo "Building V8 version: ${V8_VERSION}"
 
-      # 3️⃣ 缓存（depot_tools + v8）
+      # 3️⃣ 缓存 depot_tools + v8
       - name: Cache depot_tools and v8
         uses: actions/cache@v4
         with:
@@ -33,14 +33,22 @@ jobs:
             ${{ github.workspace }}/v8
           key: v8-${{ steps.version.outputs.v8_version }}
 
-      # 4️⃣ 安装依赖
-      - name: Install dependencies
+      # 4️⃣ 安装基础依赖
+      - name: Install base dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git python3 pkg-config build-essential \
               ninja-build curl unzip default-jdk
 
-      # 5️⃣ 获取 depot_tools
+      # 5️⃣ 安装 Android SDK & NDK
+      - name: Setup Android SDK & NDK
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 34
+          ndk-version: 25.2.9519653
+        id: android
+
+      # 6️⃣ 获取 depot_tools
       - name: Fetch depot_tools
         run: |
           if [ ! -d "$HOME/depot_tools" ]; then
@@ -48,41 +56,55 @@ jobs:
           fi
           echo "$HOME/depot_tools" >> $GITHUB_PATH
 
-      # 6️⃣ 获取 V8 源码并切换版本
-      - name: Fetch V8 source
+      # 7️⃣ 获取 V8 源码、切分支、配置 .gclient
+      - name: Fetch V8 source and configure gclient for Android
+        env:
+          V8_VERSION: ${{ steps.version.outputs.v8_version }}
         run: |
           cd $GITHUB_WORKSPACE
           if [ ! -d "v8" ]; then
             fetch v8
           fi
+
           cd v8
           git fetch --tags
-          git checkout ${{ steps.version.outputs.v8_version }}
-          gclient sync -D
+          echo "Checking out version: $V8_VERSION"
+          git checkout $V8_VERSION
 
-      # 7️⃣ 配置 GN（启用 object_print）
+          # 添加 target_os = ['android']
+          if ! grep -q "target_os = \['android'\]" .gclient; then
+            sed -i "/^target_os = /d" .gclient
+            echo "target_os = ['android']" >> .gclient
+          fi
+
+          # 强制同步依赖
+          gclient sync --with_branch_heads --with_tags --force --reset --delete_unversioned_trees -D
+
+      # 8️⃣ GN 配置
       - name: Configure GN
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.android.outputs.ndk-path }}
         run: |
           cd $GITHUB_WORKSPACE/v8
-          gn gen out/android_arm64.release --args='
-            target_os="android"
-            target_cpu="arm64"
+          gn gen out/android_arm64.release --args="
+            target_os=\"android\"
+            target_cpu=\"arm64\"
             is_debug=false
             v8_enable_object_print=true
-            v8_target_cpu="arm64"
-            android_ndk_root="/usr/local/lib/android/sdk/ndk-bundle"
+            v8_target_cpu=\"arm64\"
+            android_ndk_root=\"$ANDROID_NDK_ROOT\"
             v8_static_library=false
             v8_use_external_startup_data=false
             use_custom_libcxx=false
-          '
+          "
 
-      # 8️⃣ 构建 d8
+      # 9️⃣ 构建 d8
       - name: Build d8
         run: |
           cd $GITHUB_WORKSPACE/v8
           ninja -C out/android_arm64.release d8
 
-      # 9️⃣ 打包输出（排除 gen 和 src）
+      # 🔟 打包输出（排除 gen 和 src）
       - name: Package output
         run: |
           cd $GITHUB_WORKSPACE/v8/out
@@ -91,7 +113,7 @@ jobs:
               -czf android_arm64.release.tar.gz android_arm64.release
           mv android_arm64.release.tar.gz $GITHUB_WORKSPACE/
 
-      # 🔟 上传产物
+      # 1️⃣1️⃣ 上传 artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
