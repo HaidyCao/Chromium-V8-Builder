@@ -1,0 +1,73 @@
+name: Build D8 for Android ARM64
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "V8_VERSION"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Read V8 Version
+        id: version
+        run: |
+          V8_VERSION=$(cat V8_VERSION | tr -d '\n\r ')
+          echo "Building V8 version: $V8_VERSION"
+          echo "v8_version=$V8_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git python3 python3-pip curl unzip lsb-release
+          sudo apt-get install -y build-essential pkg-config libnss3 libx11-dev
+          python3 -m pip install --upgrade pip
+
+      - name: Get depot_tools
+        run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+          echo "$PWD/depot_tools" >> $GITHUB_PATH
+
+      - name: Fetch V8 Source
+        run: |
+          mkdir v8 && cd v8
+          fetch v8
+          cd v8
+          git fetch --tags
+          git checkout ${ { steps.version.outputs.v8_version } }
+          gclient sync -D
+
+      - name: Setup Android Build Environment
+        run: |
+          cd v8
+          ./build/install-build-deps-android.sh
+          ./tools/dev/v8gen.py android_arm64.release -- \
+            target_os="android" \
+            v8_target_cpu="arm64" \
+            is_debug=false \
+            v8_enable_i18n_support=false \
+            is_component_build=false \
+            treat_warnings_as_errors=false \
+            use_custom_libcxx=false
+
+      - name: Build D8
+        run: |
+          cd v8
+          autoninja -C out/android_arm64.release d8
+
+      - name: Package D8
+        run: |
+          cd v8/out/android_arm64.release
+          zip -r d8-android-arm64-${ { steps.version.outputs.v8_version } }.zip d8
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: d8-android-arm64-${ { steps.version.outputs.v8_version } }
+          path: v8/out/android_arm64.release/d8-android-arm64-${ { steps.version.outputs.v8_version } }.zip
