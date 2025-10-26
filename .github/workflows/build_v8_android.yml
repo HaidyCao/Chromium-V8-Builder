@@ -73,7 +73,7 @@ jobs:
 
           # 添加 target_os = ['android']
           if ! grep -q "target_os = \['android'\]" $HOME/depot_tools/.gclient; then
-            sed -i "/^target_os = /d" $HOME/depot_tools‘.gclient
+            sed -i "/^target_os = /d" $HOME/depot_tools/.gclient
             echo "target_os = ['android']" >> $HOME/depot_tools/.gclient
           fi
 
