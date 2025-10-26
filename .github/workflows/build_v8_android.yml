@@ -1,0 +1,98 @@
+name: Build V8 Android ARM64 (d8)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**'                # 任意文件修改都触发，包括 .yml
+  workflow_dispatch:        # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      # 1️⃣ 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ 读取版本文件 (v8_tag.txt)
+      - name: Read V8 version
+        id: version
+        run: |
+          V8_VERSION=$(cat v8_tag.txt | tr -d '\n')
+          echo "v8_version=${V8_VERSION}" >> $GITHUB_OUTPUT
+          echo "Building V8 version: ${V8_VERSION}"
+
+      # 3️⃣ 设置构建缓存（depot_tools & v8）
+      - name: Cache depot_tools and v8
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/depot_tools
+            ~/v8
+          key: v8-${{ steps.version.outputs.v8_version }}
+
+      # 4️⃣ 安装依赖
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git python3 pkg-config build-essential \
+              ninja-build curl unzip default-jdk
+
+      # 5️⃣ 获取 depot_tools
+      - name: Fetch depot_tools
+        run: |
+          if [ ! -d "$HOME/depot_tools" ]; then
+            git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
+          fi
+          echo "$HOME/depot_tools" >> $GITHUB_PATH
+
+      # 6️⃣ 获取 V8 源码并切换版本
+      - name: Fetch V8 source
+        run: |
+          if [ ! -d "$HOME/v8" ]; then
+            fetch v8
+          fi
+          cd "$HOME/v8"
+          git fetch --tags
+          git checkout ${{ steps.version.outputs.v8_version }}
+          gclient sync -D
+
+      # 7️⃣ 配置 GN 构建参数（开启 object_print）
+      - name: Configure build (GN)
+        run: |
+          cd "$HOME/v8"
+          gn gen out/android_arm64.release --args='
+            target_os="android"
+            target_cpu="arm64"
+            is_debug=false
+            v8_enable_object_print=true
+            v8_target_cpu="arm64"
+            android_ndk_root="/usr/local/lib/android/sdk/ndk-bundle"
+            v8_static_library=false
+            v8_use_external_startup_data=false
+            use_custom_libcxx=false
+          '
+
+      # 8️⃣ 编译 d8
+      - name: Build d8
+        run: |
+          cd "$HOME/v8"
+          ninja -C out/android_arm64.release d8
+
+      # 9️⃣ 打包输出（排除 gen 和 src）
+      - name: Package output
+        run: |
+          cd "$HOME/v8/out"
+          tar --exclude='android_arm64.release/gen' \
+              --exclude='android_arm64.release/src' \
+              -czf android_arm64.release.tar.gz android_arm64.release
+          mv android_arm64.release.tar.gz $GITHUB_WORKSPACE/
+
+      # 🔟 上传产物
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android_arm64.release
+          path: android_arm64.release.tar.gz
