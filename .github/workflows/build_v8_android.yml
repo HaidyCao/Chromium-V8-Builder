@@ -72,9 +72,9 @@ jobs:
           git checkout $V8_VERSION
 
           # 添加 target_os = ['android']
-          if ! grep -q "target_os = \['android'\]" .gclient; then
-            sed -i "/^target_os = /d" .gclient
-            echo "target_os = ['android']" >> .gclient
+          if ! grep -q "target_os = \['android'\]" $HOME/depot_tools/.gclient; then
+            sed -i "/^target_os = /d" $HOME/depot_tools‘.gclient
+            echo "target_os = ['android']" >> $HOME/depot_tools/.gclient
           fi
 
           # 强制同步依赖
