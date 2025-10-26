@@ -20,7 +20,7 @@ jobs:
       - name: Read V8 version
         id: version
         run: |
-          V8_VERSION=$(cat v8_tag.txt | tr -d '\n')
+          V8_VERSION=$(cat V8_VERSION | tr -d '\n')
           echo "v8_version=${V8_VERSION}" >> $GITHUB_OUTPUT
           echo "Building V8 version: ${V8_VERSION}"
 
