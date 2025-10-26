@@ -40,23 +40,23 @@ jobs:
           sudo apt-get install -y git python3 pkg-config build-essential \
               ninja-build curl unzip default-jdk
 
-      - name: Setup JDK 17
-        uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: 17
+      # - name: Setup JDK 17
+      #   uses: actions/setup-java@v3
+      #   with:
+      #     distribution: temurin
+      #     java-version: 17
 
       # 5️⃣ 安装 Android SDK & NDK
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # - name: Setup Android SDK
+      #   uses: android-actions/setup-android@v3
 
-      - name: Install Android NDK
-        run: |
-          sdkmanager --install "ndk;25.2.9519653"
+      # - name: Install Android NDK
+      #   run: |
+      #     sdkmanager --install "ndk;25.2.9519653"
 
-      - name: Set NDK environment variable
-        run: |
-          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/25.2.9519653" >> $GITHUB_ENV
+      # - name: Set NDK environment variable
+      #   run: |
+      #     echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/25.2.9519653" >> $GITHUB_ENV
 
       # 6️⃣ 获取 depot_tools
       - name: Fetch depot_tools
@@ -87,8 +87,7 @@ jobs:
           echo "Checking out version: $V8_VERSION"
           git checkout $V8_VERSION
 
-          # 强制同步依赖
-          gclient sync --with_branch_heads --with_tags --force --reset --delete_unversioned_trees -D
+          gclient sync --nohooks -D
 
       # 8️⃣ GN 配置
       - name: Configure GN
