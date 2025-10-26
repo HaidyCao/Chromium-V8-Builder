@@ -40,7 +40,7 @@ jobs:
           fetch v8
           cd v8
           git fetch --tags
-          git checkout ${ { steps.version.outputs.v8_version } }
+          git checkout ${{ steps.version.outputs.v8_version }}
           gclient sync -D
 
       - name: Setup Android Build Environment
@@ -54,6 +54,7 @@ jobs:
             v8_enable_i18n_support=false \
             is_component_build=false \
             treat_warnings_as_errors=false \
+            v8_enable_object_print=true \
             use_custom_libcxx=false
 
       - name: Build D8
@@ -64,10 +65,10 @@ jobs:
       - name: Package D8
         run: |
           cd v8/out/android_arm64.release
-          zip -r d8-android-arm64-${ { steps.version.outputs.v8_version } }.zip d8
+          zip -r d8-android-arm64-${{ steps.version.outputs.v8_version }}.zip d8
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: d8-android-arm64-${ { steps.version.outputs.v8_version } }
-          path: v8/out/android_arm64.release/d8-android-arm64-${ { steps.version.outputs.v8_version } }.zip
+          name: d8-android-arm64-${{ steps.version.outputs.v8_version }}
+          path: v8/out/android_arm64.release/d8-android-arm64-${{ steps.version.outputs.v8_version }}.zip
