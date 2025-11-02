@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       # 1️⃣ 检出仓库
@@ -87,7 +87,7 @@ jobs:
           echo "Checking out version: $V8_VERSION"
           git checkout $V8_VERSION
 
-          gclient sync --nohooks -D
+          gclient sync
 
       # 8️⃣ GN 配置
       - name: Configure GN
