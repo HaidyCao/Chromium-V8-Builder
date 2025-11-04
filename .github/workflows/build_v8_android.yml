@@ -95,37 +95,35 @@ jobs:
           ANDROID_NDK_ROOT: ${{ steps.android.outputs.ndk-path }}
         run: |
           cd $GITHUB_WORKSPACE/v8
-            gn gen out/android_arm64.release --args="
+            gn gen out/android_arm64.debug --args="
                         target_os=\"android\"
                         target_cpu=\"arm64\"
                         v8_target_cpu=\"arm64\"
-                        is_debug=false
+                        is_debug=true
                         v8_enable_object_print=true
                         v8_enable_disassembler=true
                         v8_static_library=false
                         is_component_build=false
-                        v8_use_external_startup_data=false
-                        v8_enable_debug_code=false
           "
 
       # 9️⃣ 构建 d8
       - name: Build d8
         run: |
           cd $GITHUB_WORKSPACE/v8
-          ninja -C out/android_arm64.release d8
+          ninja -C out/android_arm64.debug d8
 
       # 🔟 打包输出（排除 gen 和 src）
       - name: Package output
         run: |
           cd $GITHUB_WORKSPACE/v8/out
-          tar --exclude='android_arm64.release/gen' \
-              --exclude='android_arm64.release/src' \
-              -czf android_arm64.release.tar.gz android_arm64.release
-          mv android_arm64.release.tar.gz $GITHUB_WORKSPACE/
+          tar --exclude='android_arm64.debug/gen' \
+              --exclude='android_arm64.debug/src' \
+              -czf android_arm64.debug.tar.gz android_arm64.debug
+          mv android_arm64.debug.tar.gz $GITHUB_WORKSPACE/
 
       # 1️⃣1️⃣ 上传 artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android_arm64.release
-          path: android_arm64.release.tar.gz
+          name: android_arm64.debug
+          path: android_arm64.debug.tar.gz
